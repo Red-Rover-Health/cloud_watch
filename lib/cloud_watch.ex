@@ -172,7 +172,9 @@ defmodule CloudWatch do
     # Log names could change between calls, but has to remain stable inside the method `do_flush/4`
     log_group_name = resolve_name(state.log_group_name)
     log_stream_name = resolve_name(state.log_stream_name)
-    do_flush(state, opts, log_group_name, log_stream_name)
+    result = do_flush(state, opts, log_group_name, log_stream_name)
+    IO.inspect({"cloudwatchhh", "result", result})
+    result
   end
 
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
@@ -217,6 +219,10 @@ defmodule CloudWatch do
         |> do_flush(opts, log_group_name, log_stream_name)
 
       {:error, {"ResourceNotFoundException", "The specified log group does not exist."}} ->
+        IO.inspect(
+          {"cloudwatchhh", {"ResourceNotFoundException", "The specified log group does not exist.", log_group_name}}
+        )
+
         {:ok, _, _} = AwsProxy.create_log_group(state.client, %{logGroupName: log_group_name})
 
         {:ok, _, _} =
@@ -230,6 +236,10 @@ defmodule CloudWatch do
         |> do_flush(opts, log_group_name, log_stream_name)
 
       {:error, {"ResourceNotFoundException", "The specified log stream does not exist."}} ->
+        IO.inspect(
+          {"cloudwatchhh", {"ResourceNotFoundException", "The specified log stream does not exist.", log_stream_name}}
+        )
+
         {:ok, _, _} =
           AwsProxy.create_log_stream(
             state.client,
