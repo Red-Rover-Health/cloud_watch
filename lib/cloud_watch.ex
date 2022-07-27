@@ -176,7 +176,7 @@ defmodule CloudWatch do
   end
 
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
-    IO.inspect("do_flush")
+    IO.inspect({"cloudwatchhh", "do_flush"})
 
     events = %{
       logEvents: Enum.sort_by(buffer, & &1.timestamp),
@@ -189,8 +189,10 @@ defmodule CloudWatch do
       {:ok, %{"nextSequenceToken" => next_sequence_token}, _} ->
         {:ok, state |> purge_buffer() |> Map.put(:sequence_token, next_sequence_token)}
 
-      {:error, {type, _message, next_sequence_token}}
+      {:error, {type, message, next_sequence_token}}
       when type in ["DataAlreadyAcceptedException", "InvalidSequenceTokenException"] ->
+        IO.inspect({"cloudwatchhh", {type, message}})
+
         state
         |> Map.put(:sequence_token, next_sequence_token)
         |> do_flush(opts, log_group_name, log_stream_name)
@@ -199,6 +201,8 @@ defmodule CloudWatch do
        {"DataAlreadyAcceptedException",
         "The given batch of log events has already been accepted. The next batch can be sent with sequenceToken: " <>
             next_sequence_token}} ->
+        IO.inspect({"cloudwatchhh", "DataAlreadyAcceptedException"})
+
         state
         |> Map.put(:sequence_token, next_sequence_token)
         |> do_flush(opts, log_group_name, log_stream_name)
@@ -206,6 +210,8 @@ defmodule CloudWatch do
       {:error,
        {"InvalidSequenceTokenException",
         "The given sequenceToken is invalid. The next expected sequenceToken is: " <> next_sequence_token}} ->
+        IO.inspect({"cloudwatchhh", "InvalidSequenceTokenException"})
+
         state
         |> Map.put(:sequence_token, next_sequence_token)
         |> do_flush(opts, log_group_name, log_stream_name)
@@ -235,13 +241,16 @@ defmodule CloudWatch do
         |> do_flush(opts, log_group_name, log_stream_name)
 
       {:error, {"ThrottlingException", "Rate exceeded"}} ->
+        IO.inspect({"cloudwatchhh", "ThrottlingException"})
         do_flush(state, opts, log_group_name, log_stream_name)
 
       {:error, %HTTPoison.Error{id: nil, reason: reason}}
       when reason in [:closed, :connect_timeout, :timeout] ->
+        IO.inspect({"cloudwatchhh", {"HTTPoison.Error", reason}})
         do_flush(state, opts, log_group_name, log_stream_name)
 
-      {:error, {type, _message}} when type in [:closed, :connect_timeout, :timeout] ->
+      {:error, {type, message}} when type in [:closed, :connect_timeout, :timeout] ->
+        IO.inspect({"cloudwatchhh", {":error", type, message}})
         do_flush(state, opts, log_group_name, log_stream_name)
     end
   end
