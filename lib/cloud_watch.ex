@@ -176,7 +176,7 @@ defmodule CloudWatch do
   end
 
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
-    IO.inspect({"cloudwatchhh", "do_flush"})
+    IO.inspect({"cloudwatchhh", "do_flush", log_group_name, log_stream_name})
 
     events = %{
       logEvents: Enum.sort_by(buffer, & &1.timestamp),
