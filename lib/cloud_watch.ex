@@ -132,8 +132,10 @@ defmodule CloudWatch do
   end
 
   @doc false
-  @spec metadata_matches?(Keyword.t(), nil | Keyword.t()) :: true | false
+  @spec metadata_matches?(Keyword.t(), nil | Keyword.t() | mfa()) :: true | false
   def metadata_matches?(_md, nil), do: true
+
+  def metadata_matches?(md, {module, function_name, args}), do: apply(module, function_name, [args | md])
 
   def metadata_matches?(_md, []), do: true
 
