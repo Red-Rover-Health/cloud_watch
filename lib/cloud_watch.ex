@@ -121,7 +121,7 @@ defmodule CloudWatch do
       |> IO.chardata_to_string()
 
     # buffer order is not relevant, we'll reverse or sort later if needed
-    buffer = [%{message: message, timestamp: Utils.convert_timestamp(ts), metadata: md} | buffer]
+    buffer = [{%{message: message, timestamp: Utils.convert_timestamp(ts)}, md} | buffer]
 
     %{
       state
@@ -174,7 +174,10 @@ defmodule CloudWatch do
     log_stream_name = resolve_name(state.log_stream_name)
 
     buffer
-    |> Enum.group_by(fn event -> resolve_name(state.log_group_name, Map.get(event, :metadata)) end)
+    |> Enum.group_by(
+      fn {_event, metadata} -> resolve_name(state.log_group_name, metadata) end,
+      fn {event, _metadata} -> event end
+    )
     |> Enum.reduce({:ok, %{state | buffer: []}}, fn
       {log_group_name, buffer}, {:ok, state} ->
         do_flush(%{state | buffer: buffer}, opts, log_group_name, log_stream_name)
