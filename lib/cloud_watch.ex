@@ -121,7 +121,7 @@ defmodule CloudWatch do
       |> IO.chardata_to_string()
 
     # buffer order is not relevant, we'll reverse or sort later if needed
-    buffer = [%{message: message, timestamp: Utils.convert_timestamp(ts)} | buffer]
+    buffer = [%{message: message, timestamp: Utils.convert_timestamp(ts), metadata: md} | buffer]
 
     %{
       state
@@ -170,11 +170,18 @@ defmodule CloudWatch do
 
   defp flush(%{buffer: []} = state, _opts), do: {:ok, state}
 
-  defp flush(state, opts) do
-    # Log names could change between calls, but has to remain stable inside the method `do_flush/4`
-    log_group_name = resolve_name(state.log_group_name)
+  defp flush(%{buffer: buffer} = state, opts) do
     log_stream_name = resolve_name(state.log_stream_name)
-    do_flush(state, opts, log_group_name, log_stream_name)
+
+    buffer
+    |> Enum.group_by(fn event -> resolve_name(state.log_group_name, Map.get(event, :metadata)) end)
+    |> Enum.reduce({:ok, %{state | buffer: []}}, fn
+      {log_group_name, buffer}, {:ok, state} ->
+        do_flush(%{state | buffer: buffer}, opts, log_group_name, log_stream_name)
+
+      _, error ->
+        error
+    end)
   end
 
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
@@ -244,6 +251,16 @@ defmodule CloudWatch do
       {:error, {type, _message}} when type in [:closed, :connect_timeout, :timeout] ->
         do_flush(state, opts, log_group_name, log_stream_name)
     end
+  end
+
+  # Apply a MFA tuple (Module, Function, Attributes) to obtain the name. Function must return a string
+  defp resolve_name({m, f, a}, metadata) do
+    :erlang.apply(m, f, [metadata | a])
+  end
+
+  # Use the name directly
+  defp resolve_name(name, _metadata) do
+    name
   end
 
   # Apply a MFA tuple (Module, Function, Attributes) to obtain the name. Function must return a string
