@@ -30,6 +30,8 @@ defmodule CloudWatch do
         {level, _gl, {Logger, msg, ts, md}},
         %{level: min_level, metadata_filter: metadata_filter} = state
       ) do
+    IO.inspect("handle_event log")
+
     if Logger.compare_levels(level, min_level) != :lt and metadata_matches?(md, metadata_filter) do
       state
       |> add_message(level, msg, ts, md)
@@ -37,10 +39,14 @@ defmodule CloudWatch do
     else
       {:ok, state}
     end
+    |> IO.inspect()
   end
 
   def handle_event(:flush, state) do
+    IO.inspect("handle_event :flush")
+
     {:ok, purge_buffer(state)}
+    |> IO.inspect()
   end
 
   def handle_info(:flush, state) do
