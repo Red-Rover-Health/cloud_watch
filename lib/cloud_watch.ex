@@ -201,7 +201,7 @@ defmodule CloudWatch do
       sequenceToken: state.sequence_token
     }
 
-    case AwsProxy.put_log_events(state.client, events) do
+    case AwsProxy.put_log_events(state.client, events) |> IO.inspect() do
       {:ok, %{"nextSequenceToken" => next_sequence_token}, _} ->
         {:ok, state |> purge_buffer() |> Map.put(:sequence_token, next_sequence_token)}
 
