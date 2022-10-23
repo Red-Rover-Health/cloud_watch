@@ -194,72 +194,74 @@ defmodule CloudWatch do
   end
 
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
-    events = %{
-      logEvents: Enum.sort_by(buffer, & &1.timestamp),
-      logGroupName: log_group_name,
-      logStreamName: log_stream_name,
-      sequenceToken: state.sequence_token
-    }
+    IO.puts("do_flush")
+    {:ok, state |> purge_buffer()}
+    # events = %{
+    #   logEvents: Enum.sort_by(buffer, & &1.timestamp),
+    #   logGroupName: log_group_name,
+    #   logStreamName: log_stream_name,
+    #   sequenceToken: state.sequence_token
+    # }
 
-    case AwsProxy.put_log_events(state.client, events) |> IO.inspect() do
-      {:ok, %{"nextSequenceToken" => next_sequence_token}, _} ->
-        {:ok, state |> purge_buffer() |> Map.put(:sequence_token, next_sequence_token)}
+    # case AwsProxy.put_log_events(state.client, events) |> IO.inspect() do
+    #   {:ok, %{"nextSequenceToken" => next_sequence_token}, _} ->
+    #     {:ok, state |> purge_buffer() |> Map.put(:sequence_token, next_sequence_token)}
 
-      {:error, {type, _message, next_sequence_token}}
-      when type in ["DataAlreadyAcceptedException", "InvalidSequenceTokenException"] ->
-        state
-        |> Map.put(:sequence_token, next_sequence_token)
-        |> do_flush(opts, log_group_name, log_stream_name)
+    #   {:error, {type, _message, next_sequence_token}}
+    #   when type in ["DataAlreadyAcceptedException", "InvalidSequenceTokenException"] ->
+    #     state
+    #     |> Map.put(:sequence_token, next_sequence_token)
+    #     |> do_flush(opts, log_group_name, log_stream_name)
 
-      {:error,
-       {"DataAlreadyAcceptedException",
-        "The given batch of log events has already been accepted. The next batch can be sent with sequenceToken: " <>
-            next_sequence_token}} ->
-        state
-        |> Map.put(:sequence_token, next_sequence_token)
-        |> do_flush(opts, log_group_name, log_stream_name)
+    #   {:error,
+    #    {"DataAlreadyAcceptedException",
+    #     "The given batch of log events has already been accepted. The next batch can be sent with sequenceToken: " <>
+    #         next_sequence_token}} ->
+    #     state
+    #     |> Map.put(:sequence_token, next_sequence_token)
+    #     |> do_flush(opts, log_group_name, log_stream_name)
 
-      {:error,
-       {"InvalidSequenceTokenException",
-        "The given sequenceToken is invalid. The next expected sequenceToken is: " <> next_sequence_token}} ->
-        state
-        |> Map.put(:sequence_token, next_sequence_token)
-        |> do_flush(opts, log_group_name, log_stream_name)
+    #   {:error,
+    #    {"InvalidSequenceTokenException",
+    #     "The given sequenceToken is invalid. The next expected sequenceToken is: " <> next_sequence_token}} ->
+    #     state
+    #     |> Map.put(:sequence_token, next_sequence_token)
+    #     |> do_flush(opts, log_group_name, log_stream_name)
 
-      {:error, {"ResourceNotFoundException", "The specified log group does not exist."}} ->
-        {:ok, _, _} = AwsProxy.create_log_group(state.client, %{logGroupName: log_group_name})
+    #   {:error, {"ResourceNotFoundException", "The specified log group does not exist."}} ->
+    #     {:ok, _, _} = AwsProxy.create_log_group(state.client, %{logGroupName: log_group_name})
 
-        {:ok, _, _} =
-          AwsProxy.create_log_stream(
-            state.client,
-            %{logGroupName: log_group_name, logStreamName: log_stream_name}
-          )
+    #     {:ok, _, _} =
+    #       AwsProxy.create_log_stream(
+    #         state.client,
+    #         %{logGroupName: log_group_name, logStreamName: log_stream_name}
+    #       )
 
-        state
-        |> Map.put(:sequence_token, nil)
-        |> do_flush(opts, log_group_name, log_stream_name)
+    #     state
+    #     |> Map.put(:sequence_token, nil)
+    #     |> do_flush(opts, log_group_name, log_stream_name)
 
-      {:error, {"ResourceNotFoundException", "The specified log stream does not exist."}} ->
-        {:ok, _, _} =
-          AwsProxy.create_log_stream(
-            state.client,
-            %{logGroupName: log_group_name, logStreamName: log_stream_name}
-          )
+    #   {:error, {"ResourceNotFoundException", "The specified log stream does not exist."}} ->
+    #     {:ok, _, _} =
+    #       AwsProxy.create_log_stream(
+    #         state.client,
+    #         %{logGroupName: log_group_name, logStreamName: log_stream_name}
+    #       )
 
-        state
-        |> Map.put(:sequence_token, nil)
-        |> do_flush(opts, log_group_name, log_stream_name)
+    #     state
+    #     |> Map.put(:sequence_token, nil)
+    #     |> do_flush(opts, log_group_name, log_stream_name)
 
-      {:error, {"ThrottlingException", "Rate exceeded"}} ->
-        do_flush(state, opts, log_group_name, log_stream_name)
+    #   {:error, {"ThrottlingException", "Rate exceeded"}} ->
+    #     do_flush(state, opts, log_group_name, log_stream_name)
 
-      {:error, %HTTPoison.Error{id: nil, reason: reason}}
-      when reason in [:closed, :connect_timeout, :timeout] ->
-        do_flush(state, opts, log_group_name, log_stream_name)
+    #   {:error, %HTTPoison.Error{id: nil, reason: reason}}
+    #   when reason in [:closed, :connect_timeout, :timeout] ->
+    #     do_flush(state, opts, log_group_name, log_stream_name)
 
-      {:error, {type, _message}} when type in [:closed, :connect_timeout, :timeout] ->
-        do_flush(state, opts, log_group_name, log_stream_name)
-    end
+    #   {:error, {type, _message}} when type in [:closed, :connect_timeout, :timeout] ->
+    #     do_flush(state, opts, log_group_name, log_stream_name)
+    # end
   end
 
   # Apply a MFA tuple (Module, Function, Attributes) to obtain the name. Function must return a string
