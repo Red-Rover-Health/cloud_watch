@@ -12,7 +12,7 @@ defmodule CloudWatch do
 
   def init({__MODULE__, name}) do
     state = configure(name, [])
-    Process.send_after(self(), :flush, state.max_timeout)
+    # Process.send_after(self(), :flush, state.max_timeout)
     {:ok, state}
   end
 
@@ -30,6 +30,8 @@ defmodule CloudWatch do
         {level, _gl, {Logger, msg, ts, md}},
         %{level: min_level, metadata_filter: metadata_filter} = state
       ) do
+    IO.puts("handle_event")
+
     if Logger.compare_levels(level, min_level) != :lt and metadata_matches?(md, metadata_filter) do
       {:ok, state}
       # |> add_message(level, msg, ts, md)
@@ -41,6 +43,11 @@ defmodule CloudWatch do
 
   def handle_event(:flush, state) do
     {:ok, purge_buffer(state)}
+  end
+
+  def handle_event(event, state) do
+    IO.inspect({"handle_event", event})
+    {:ok, state}
   end
 
   def handle_info(:flush, state) do
@@ -171,6 +178,7 @@ defmodule CloudWatch do
   defp flush(%{buffer: []} = state, _opts), do: {:ok, state}
 
   defp flush(%{buffer: buffer} = state, opts) do
+    IO.puts("flush...")
     log_stream_name = resolve_name(state.log_stream_name)
 
     buffer
