@@ -31,7 +31,7 @@ defmodule CloudWatch do
         %{level: min_level, metadata_filter: metadata_filter} = state
       ) do
     if Logger.compare_levels(level, min_level) != :lt and metadata_matches?(md, metadata_filter) do
-      state
+      {:ok, state}
       # |> add_message(level, msg, ts, md)
       # |> flush()
     else
