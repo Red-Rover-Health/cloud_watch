@@ -52,7 +52,6 @@ defmodule CloudWatch do
   def handle_info(:flush, state) do
     IO.puts("handle_info :flush")
     {:ok, flushed_state} = flush(state, force: true)
-    Process.send_after(self(), :flush, state.max_timeout)
     {:ok, flushed_state}
   end
 
