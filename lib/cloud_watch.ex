@@ -39,6 +39,11 @@ defmodule CloudWatch do
     end
   end
 
+  def handle_event(event, state) do
+    IO.inspect({"handle_event", event})
+    {:ok, state}
+  end
+
   def handle_event(:flush, state) do
     {:ok, purge_buffer(state)}
   end
