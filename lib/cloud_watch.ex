@@ -12,14 +12,14 @@ defmodule CloudWatch do
 
   def init({__MODULE__, name}) do
     state = configure(name, [])
-    Process.send_after(self(), :flush, state.max_timeout)
-    {:ok, state}
+    timer_ref = Process.send_after(self(), :flush, state.max_timeout)
+    {:ok, {timer_ref, state}}
   end
 
   def init(_), do: init({__MODULE__, __MODULE__})
 
-  def handle_call({:configure, opts}, %{name: name}) do
-    {:ok, :ok, configure(name, opts)}
+  def handle_call({:configure, opts}, {timer_ref, %{name: name}}) do
+    {:ok, :ok, {timer_ref, configure(name, opts)}}
   end
 
   def handle_call(_, state) do
@@ -28,25 +28,29 @@ defmodule CloudWatch do
 
   def handle_event(
         {level, _gl, {Logger, msg, ts, md}},
-        %{level: min_level, metadata_filter: metadata_filter} = state
+        {timer_ref, %{level: min_level, metadata_filter: metadata_filter} = state}
       ) do
     if Logger.compare_levels(level, min_level) != :lt and metadata_matches?(md, metadata_filter) do
-      state
-      |> add_message(level, msg, ts, md)
-      |> flush()
+      {:ok, new_state} =
+        state
+        |> add_message(level, msg, ts, md)
+        |> flush()
+
+      {:ok, {timer_ref, new_state}}
     else
-      {:ok, state}
+      {:ok, {timer_ref, state}}
     end
   end
 
-  def handle_event(:flush, state) do
-    {:ok, purge_buffer(state)}
+  def handle_event(:flush, {timer_ref, state}) do
+    {:ok, {timer_ref, purge_buffer(state)}}
   end
 
-  def handle_info(:flush, state) do
+  def handle_info(:flush, {timer_ref, state}) do
     {:ok, flushed_state} = flush(state, force: true)
-    Process.send_after(self(), :flush, state.max_timeout)
-    {:ok, flushed_state}
+    :ok = Process.cancel_timer(timer_ref)
+    timer_ref = Process.send_after(self(), :flush, state.max_timeout)
+    {:ok, {timer_ref, flushed_state}}
   end
 
   def handle_info(_msg, state) do
