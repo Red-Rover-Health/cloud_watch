@@ -48,7 +48,7 @@ defmodule CloudWatch do
 
   def handle_info(:flush, {timer_ref, state}) do
     {:ok, flushed_state} = flush(state, force: true)
-    :ok = Process.cancel_timer(timer_ref)
+    Process.cancel_timer(timer_ref)
     timer_ref = Process.send_after(self(), :flush, state.max_timeout)
     {:ok, {timer_ref, flushed_state}}
   end
