@@ -191,6 +191,10 @@ defmodule CloudWatch do
     end)
   end
 
+  defp do_flush(%{buffer: _buffer} = state, _opts, nil, _log_stream_name) do
+    {:ok, state |> purge_buffer()}
+  end
+
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
     events = %{
       logEvents: Enum.sort_by(buffer, & &1.timestamp),
