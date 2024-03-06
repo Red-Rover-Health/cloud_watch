@@ -197,7 +197,21 @@ defmodule CloudWatch do
 
   defp do_flush(%{buffer: buffer} = state, opts, log_group_name, log_stream_name) do
     events = %{
-      logEvents: Enum.sort_by(buffer, & &1.timestamp),
+      logEvents:
+        buffer
+        |> Enum.sort_by(& &1.timestamp)
+        |> Enum.map(fn
+          %{message: message} = event ->
+            if String.length(message) > 262_144 do
+              # (1024 * 256) - `{"timestamp":"yyyy-mm-ddThh:mm:ss","message":""}`.length
+              %{event | message: String.slice(message, 0..262_096)}
+            else
+              event
+            end
+
+          event ->
+            event
+        end),
       logGroupName: log_group_name,
       logStreamName: log_stream_name,
       sequenceToken: state.sequence_token
